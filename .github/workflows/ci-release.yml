@@ -1,0 +1,78 @@
+name: Build, Pack and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'        # create release by pushing tags like v1.2.3
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build-and-publish:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Find first .csproj in the repo
+        id: find_project
+        shell: pwsh
+        run: |
+          $proj = (Get-ChildItem -Path . -Recurse -Filter *.csproj | Select-Object -First 1).FullName
+          if (-not $proj) {
+            Write-Error "No .csproj found in repository"
+            exit 1
+          }
+          echo "proj=$proj" >> $env:GITHUB_OUTPUT
+
+      - name: Restore (project)
+        run: dotnet restore "${{ steps.find_project.outputs.proj }}"
+
+      - name: Publish single-file exe (win-x64)
+        run: |
+          dotnet publish "${{ steps.find_project.outputs.proj }}" `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:DebugType=portable `
+            -p:PublishTrimmed=false `
+            -o ./artifacts
+
+      - name: Remove .pdb, zip exe
+        shell: pwsh
+        run: |
+          # remove any pdb files from artifacts
+          $pdbs = Get-ChildItem -Path ./artifacts -Filter *.pdb -Recurse -ErrorAction SilentlyContinue
+          if ($pdbs) {
+            $pdbs | Remove-Item -Force
+            Write-Host "Removed pdb files."
+          } else {
+            Write-Host "No pdb files found."
+          }
+
+          # find the produced exe (single-file) and zip it
+          $exe = Get-ChildItem -Path ./artifacts -Filter *.exe -Recurse | Select-Object -First 1
+          if (-not $exe) {
+            Write-Error "No executable (.exe) found in ./artifacts"
+            exit 1
+          }
+          $zipName = [System.IO.Path]::GetFileNameWithoutExtension($exe.Name) + '.zip'
+          $zipPath = Join-Path -Path (Resolve-Path ./artifacts) -ChildPath $zipName
+          Compress-Archive -Path $exe.FullName -DestinationPath $zipPath -Force
+          Write-Host "Created zip: $zipPath"
+
+      - name: Create GitHub Release and upload zipped artifact
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./artifacts/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
