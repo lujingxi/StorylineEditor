@@ -1,0 +1,346 @@
+﻿<Window x:Class="StorylineEditor.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:StorylineEditor"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        mc:Ignorable="d"
+        DataContext="{Binding RelativeSource={RelativeSource Self}}"
+        Title="{Binding FilePath, StringFormat='Storyline Editor - \{0\}', TargetNullValue='Storyline Editor - New Story'}" 
+        Height="750" Width="1100" 
+        Background="#F3F4F6" 
+        FontFamily="Segoe UI"
+        WindowStartupLocation="CenterScreen">
+
+    <!-- Title Bar Customization -->
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="40" 
+                            ResizeBorderThickness="5" 
+                            GlassFrameThickness="0" 
+                            CornerRadius="10"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <!-- Icon Font Style -->
+        <Style x:Key="Icon" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="LargeIcon" TargetType="TextBlock" BasedOn="{StaticResource Icon}">
+            <Setter Property="FontSize" Value="20"/>
+        </Style>
+
+        <!-- Ghost Button (Icon only) -->
+        <Style x:Key="GhostButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="shell:WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}">
+                            <ContentPresenter />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#15000000"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Trash Button Style -->
+        <Style x:Key="TrashButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+            <Setter Property="Foreground" Value="#EF4444"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FEE2E2"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Modern Input Style -->
+        <Style x:Key="ModernInput" TargetType="TextBox">
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Grid>
+                            <Border x:Name="border" Background="White" BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="5">
+                                <ScrollViewer x:Name="PART_ContentHost" Margin="2"/>
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#3B82F6"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#9CA3AF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Node Title And ID Input Style -->
+        <Style x:Key="NodeTitleInput" TargetType="TextBox">
+            <Setter Property="BorderBrush" Value="#3B82F6"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Style.Triggers>
+                <Trigger Property="IsFocused" Value="True">
+                    <Setter Property="BorderThickness" Value="1"/>
+                    <Setter Property="Background" Value="White"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="BorderThickness" Value="1"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Title Bar Quick Access Button Style -->
+        <Style x:Key="TitleBarButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Padding" Value="0"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#15000000"/>
+                    <Setter Property="Foreground" Value="#3B82F6"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- System Button Style (Min/Max) -->
+        <Style x:Key="SystemButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+        </Style>
+
+        <!-- Close Button Style (Red on hover) -->
+        <Style x:Key="SystemCloseButtonStyle" TargetType="Button" BasedOn="{StaticResource SystemButtonStyle}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E81123"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Window.InputBindings>
+        <!-- Binds Ctrl+S to the "SaveCommand" -->
+        <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveCommand}" />
+        <!-- Binds Ctrl+O to the "LoadCommand" -->
+        <KeyBinding Key="O" Modifiers="Control" Command="{Binding LoadCommand}" />
+        <!-- Binds Ctrl+P to the "PlayCommand" -->
+        <KeyBinding Key="P" Modifiers="Control" Command="{Binding PlayCommand}" />
+    </Window.InputBindings>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40"/>
+            <!-- Custom Title Bar -->
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 1. CUSTOM TITLE BAR -->
+        <Grid Grid.Row="0" Background="White">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <!-- Quick Access -->
+                <ColumnDefinition Width="*"/>
+                <!-- Title -->
+                <ColumnDefinition Width="Auto"/>
+                <!-- System Buttons -->
+            </Grid.ColumnDefinitions>
+
+            <!-- Quick Access (Open/Save/Play) -->
+            <StackPanel Orientation="Horizontal" Margin="5,0">
+                <Button Style="{StaticResource TitleBarButtonStyle}" Command="{Binding LoadCommand}" ToolTip="Open Story (Ctrl+O)">
+                    <TextBlock Text="&#xE8E5;" Style="{StaticResource LargeIcon}"/>
+                </Button>
+                <Button Style="{StaticResource TitleBarButtonStyle}" Command="{Binding SaveCommand}" ToolTip="Save Story (Ctrl+S)">
+                    <TextBlock Text="&#xE8FB;" Style="{StaticResource LargeIcon}"/>
+                </Button>
+                <Button Style="{StaticResource TitleBarButtonStyle}" Command="{Binding PlayCommand}" ToolTip="Play From Selected Node (Ctrl+P)">
+                    <TextBlock Text="&#xE768;" Style="{StaticResource LargeIcon}"/>
+                </Button>
+            </StackPanel>
+
+            <!-- Centered Title -->
+            <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" 
+               Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" 
+               Foreground="#374151" FontWeight="SemiBold" FontSize="12"/>
+
+            <!-- SYSTEM BUTTONS -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
+                <Button Style="{StaticResource SystemButtonStyle}" Click="OnMinimizeClick">
+                    <TextBlock Text="&#xE921;" Style="{StaticResource Icon}" FontSize="10"/>
+                </Button>
+                <Button Style="{StaticResource SystemButtonStyle}" Click="OnMaximizeRestoreClick">
+                    <TextBlock x:Name="MaximizeIcon" Text="&#xE922;" Style="{StaticResource Icon}" FontSize="10"/>
+                </Button>
+                <Button Style="{StaticResource SystemCloseButtonStyle}" Click="OnCloseClick">
+                    <TextBlock Text="&#xE8BB;" Style="{StaticResource Icon}" FontSize="10"/>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- MAIN CONTENT -->
+        <Grid Grid.Row="1" Margin="15">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- LEFT SIDEBAR -->
+            <Border Grid.Column="0" Background="White" CornerRadius="5" BorderBrush="#E5E7EB" BorderThickness="1">
+                <DockPanel>
+                    <!-- SCENE HEADER -->
+                    <Grid DockPanel.Dock="Top" Margin="5,5,5,0">
+                        <TextBlock Text="SCENES" Margin="5" FontWeight="Bold" Foreground="#6B7280" FontSize="11" VerticalAlignment="Center"/>
+                        <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Right" Click="AddNode_Click">
+                            <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Foreground="#3B82F6" Margin="5"/>
+                        </Button>
+                    </Grid>
+
+                    <ListBox x:Name="SceneListBox" ItemsSource="{Binding Nodes}"
+                             Margin="5"
+                             BorderThickness="0" Background="Transparent"
+                             PreviewMouseLeftButtonDown="SceneList_PreviewMouseLeftButtonDown"
+                             PreviewMouseMove="SceneList_PreviewMouseMove"
+                             PreviewMouseLeftButtonUp="SceneList_PreviewMouseLeftButtonUp"
+                             PreviewDragOver="SceneList_DragOver"
+                             AllowDrop="True" Drop="SceneList_Drop">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="Bd" CornerRadius="8" Margin="0,2" Background="{TemplateBinding Background}">
+                                                <Grid Margin="10,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="⋮⋮" Foreground="#D1D5DB" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Title}" Grid.Column="1" VerticalAlignment="Center"/>
+                                                    <Button Grid.Column="2" Style="{StaticResource TrashButton}" Click="DeleteNode_Click">
+                                                        <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="12"/>
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#EFF6FF"/>
+                                                    <Setter Property="Foreground" Value="#1E40AF"/>
+                                                </Trigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#F9FAFB"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- RIGHT EDITOR -->
+            <Grid Grid.Column="1" Margin="25,0,0,0" DataContext="{Binding SelectedNode}">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Hidden"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="1.5*"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0">
+                    <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource NodeTitleInput}"
+                             FontSize="24" FontWeight="Bold" Margin="0,0,0,5"/>
+                    <TextBox Text="{Binding Id, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource NodeTitleInput}"
+                             FontSize="12" Foreground="#9CA3AF"/>
+                </StackPanel>
+
+                <TextBox Grid.Row="1" Text="{Binding StoryText, UpdateSourceTrigger=PropertyChanged}" 
+                         Style="{StaticResource ModernInput}" Margin="0,15" AcceptsReturn="True" TextWrapping="Wrap"/>
+
+                <!-- CHOICES HEADER -->
+                <Grid Grid.Row="2" Margin="0,0,0,10">
+                    <TextBlock Text="CHOICES" FontWeight="Bold" Foreground="#6B7280" FontSize="11" VerticalAlignment="Center"/>
+                    <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Right" Click="AddChoice_Click">
+                        <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Foreground="#3B82F6"/>
+                    </Button>
+                </Grid>
+
+                <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Choices}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,0,0,5" Background="White"
+                                        AllowDrop="True" DragOver="ChoiceItem_DragOver" Drop="ChoiceItem_Drop">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <!-- Reorder Handle -->
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="180"/>
+                                            <ColumnDefinition Width="40"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Drag Handle -->
+                                        <Border Grid.Column="0" Background="Transparent" Cursor="SizeAll"
+                                                PreviewMouseLeftButtonDown="ChoiceItem_PreviewMouseDown" 
+                                                PreviewMouseMove="ChoiceItem_PreviewMouseMove">
+                                            <TextBlock Text="⋮⋮" Foreground="#D1D5DB" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="16"/>
+                                        </Border>
+
+                                        <TextBox Grid.Column="1" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernInput}" Margin="0,0,10,0"/>
+
+                                        <Border Grid.Column="2" CornerRadius="5" Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="1">
+                                            <TextBox Text="{Binding TargetNodeId, UpdateSourceTrigger=PropertyChanged}" Background="Transparent" BorderThickness="0" 
+                                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" AllowDrop="True" 
+                                                        Drop="ChoiceTarget_Drop"
+                                                        PreviewDragOver="ChoiceTarget_PreviewDragOver"
+                                                        DragLeave="ChoiceTarget_DragLeave"/>
+                                        </Border>
+
+                                        <Button Grid.Column="3" Style="{StaticResource TrashButton}" Click="DeleteChoice_Click">
+                                            <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="12"/>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>
