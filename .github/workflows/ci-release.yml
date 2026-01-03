@@ -19,49 +19,47 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Find Project and Publish Profile
-        id: info
+      - name: Find first .csproj in the repo
+        id: find_project
         shell: pwsh
         run: |
-          # Find the .csproj
           $proj = (Get-ChildItem -Path . -Recurse -Filter *.csproj | Select-Object -First 1).FullName
-          echo "proj=$proj" >> $env:GITHUB_OUTPUT
-          
-          # Find the first .pubxml in Properties/PublishProfiles
-          $profile = (Get-ChildItem -Path . -Recurse -Filter *.pubxml | Select-Object -First 1).BaseName
-          if (-not $profile) {
-            Write-Error "No Publish Profile (.pubxml) found. Please create one in Visual Studio first."
+          if (-not $proj) {
+            Write-Error "No .csproj found in repository"
             exit 1
           }
-          echo "profile=$profile" >> $env:GITHUB_OUTPUT
-          Write-Host "Using Project: $proj"
-          Write-Host "Using Profile: $profile"
+          echo "proj=$proj" >> $env:GITHUB_OUTPUT
 
-      - name: Restore
-        run: dotnet restore "${{ steps.info.outputs.proj }}"
+      - name: Restore (project)
+        run: dotnet restore "${{ steps.find_project.outputs.proj }}"
 
-      - name: Publish using VS Profile
+      - name: Publish (Framework-Dependent Single File)
         run: |
-          dotnet publish "${{ steps.info.outputs.proj }}" `
+          dotnet publish "${{ steps.find_project.outputs.proj }}" `
             -c Release `
-            /p:PublishProfile="${{ steps.info.outputs.profile }}" `
+            -r win-x64 `
+            --self-contained false `
+            -p:PublishSingleFile=true `
+            -p:DebugType=none `
             -o ./artifacts
+        # Note: --self-contained false is what makes the file small.
+        # -p:DebugType=none prevents .pdb files from being generated in the first place.
 
-      - name: Zip Executable
+      - name: Zip EXE and set outputs
         id: package
         shell: pwsh
         run: |
-          # Clean up any PDBs if they were included by the profile
-          Get-ChildItem -Path ./artifacts -Filter *.pdb -Recurse | Remove-Item -Force -ErrorAction SilentlyContinue
-
+          # Find the produced exe
           $exe = Get-ChildItem -Path ./artifacts -Filter *.exe -Recurse | Select-Object -First 1
           if (-not $exe) {
-            Write-Error "No executable found in ./artifacts. Check your Publish Profile settings."
+            Write-Error "No executable (.exe) found in ./artifacts"
             exit 1
           }
           
           $zipName = "$($exe.BaseName).zip"
-          $zipPath = Join-Path (Get-Item ./artifacts).FullName $zipName
+          $zipPath = Join-Path (Resolve-Path ./artifacts) $zipName
+          
+          # Zip the exe
           Compress-Archive -Path $exe.FullName -DestinationPath $zipPath -Force
           
           echo "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
