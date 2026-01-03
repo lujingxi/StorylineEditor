@@ -2,8 +2,7 @@ name: Build, Pack and Upload Release Asset
 
 on:
   release:
-    types:
-      - created
+    types: [published]
 
 permissions:
   contents: write
@@ -49,16 +48,9 @@ jobs:
         id: package
         shell: pwsh
         run: |
-          # remove any pdb files from artifacts
           $pdbs = Get-ChildItem -Path ./artifacts -Filter *.pdb -Recurse -ErrorAction SilentlyContinue
-          if ($pdbs) {
-            $pdbs | Remove-Item -Force
-            Write-Host "Removed pdb files."
-          } else {
-            Write-Host "No pdb files found."
-          }
+          if ($pdbs) { $pdbs | Remove-Item -Force }
 
-          # find the produced exe (single-file) and zip it
           $exe = Get-ChildItem -Path ./artifacts -Filter *.exe -Recurse | Select-Object -First 1
           if (-not $exe) {
             Write-Error "No executable (.exe) found in ./artifacts"
@@ -67,18 +59,13 @@ jobs:
           $zipName = [System.IO.Path]::GetFileNameWithoutExtension($exe.Name) + '.zip'
           $zipPath = Join-Path -Path (Resolve-Path ./artifacts) -ChildPath $zipName
           Compress-Archive -Path $exe.FullName -DestinationPath $zipPath -Force
-          Write-Host "Created zip: $zipPath"
-
-          # export outputs for subsequent step
+          
+          # Return the path to the zip file
           echo "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
-          echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
 
-      - name: Upload zip to the created GitHub Release
-        uses: actions/upload-release-asset@v1
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ${{ steps.package.outputs.zip_path }}
-          asset_name: ${{ steps.package.outputs.zip_name }}
-          asset_content_type: application/zip
+          files: ${{ steps.package.outputs.zip_path }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
