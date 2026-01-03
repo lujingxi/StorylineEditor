@@ -1,14 +1,9 @@
-name: Build, Pack and Release
+name: Build, Pack and Upload Release Asset
 
 on:
-  push:
-    tags:
-      - 'v*'
-    branches:
-      - master
-  pull_request:
-    branches:
-      - master
+  release:
+    types:
+      - created
 
 permissions:
   contents: write
@@ -50,7 +45,8 @@ jobs:
             -p:PublishTrimmed=false `
             -o ./artifacts
 
-      - name: Remove .pdb, zip exe
+      - name: Remove .pdb, zip exe and set outputs
+        id: package
         shell: pwsh
         run: |
           # remove any pdb files from artifacts
@@ -73,10 +69,16 @@ jobs:
           Compress-Archive -Path $exe.FullName -DestinationPath $zipPath -Force
           Write-Host "Created zip: $zipPath"
 
-      - name: Create GitHub Release and upload zipped artifact
-        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
-        uses: softprops/action-gh-release@v1
+          # export outputs for subsequent step
+          echo "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
+          echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+
+      - name: Upload zip to the created GitHub Release
+        uses: actions/upload-release-asset@v1
         with:
-          files: ./artifacts/*.zip
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ${{ steps.package.outputs.zip_path }}
+          asset_name: ${{ steps.package.outputs.zip_name }}
+          asset_content_type: application/zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
