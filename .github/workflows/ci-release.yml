@@ -39,6 +39,8 @@ jobs:
             -c Release `
             -r win-x64 `
             -p:PublishSingleFile=true `
+            -p:SelfContained=false `
+            -p:PublishReadyToRun=false `
             -p:DebugType=none `
             -o ./artifacts
         # Note: --self-contained false is what makes the file small.
